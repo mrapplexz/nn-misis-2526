@@ -36,8 +36,8 @@ class TitanicModel(nn.Module):
 
     def forward(self, cat_features: dict[str, Tensor], numeric_features: dict[str, Tensor]) -> Tensor:
         x_pclass = self.emb_pclass(cat_features['pclass'])
-        x_sex = self.emb_pclass(cat_features['sex'])
-        x_embarked = self.emb_pclass(cat_features['embarked'])
+        x_sex = self.emb_sex(cat_features['sex'])
+        x_embarked = self.emb_embarked(cat_features['embarked'])
 
         stacked_numeric = torch.stack([numeric_features['age'], numeric_features['sibsp'], numeric_features['parch']], dim=-1)
         x_numeric = self.numeric_linear(stacked_numeric)
