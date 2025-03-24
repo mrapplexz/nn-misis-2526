@@ -33,6 +33,7 @@ def run_iter(
         run: Run,
         i_epoch: int
 ):
+    track_name = 'train' if is_training else 'eval'
     with torch.set_grad_enabled(is_training):
         if is_training:
             model.train()
@@ -40,7 +41,8 @@ def run_iter(
             model.eval()
         loss_ce = CrossEntropyLoss(ignore_index=0)
         loss = MeanMetric().to(dev)
-        for i, batch in enumerate(dataloader):
+        loss_iter = MeanMetric().to(dev)
+        for i, batch in enumerate(tqdm(dataloader)):
             _map_to_device(batch, dev)
 
             decoder_inputs = batch['en']['input_ids'][:, :-1]
@@ -66,9 +68,13 @@ def run_iter(
                 optimizer.zero_grad()
 
             loss.update(loss_value)
+            loss_iter.update(loss_value)
+
+            if i % 100 == 0:
+                run.track(loss_iter.compute().item(), name=f'loss/epoch_{i_epoch}/{track_name}', step=i)
+                loss_iter.reset()
 
         loss = loss.compute().item()
-        track_name = 'train' if is_training else 'eval'
         run.track(loss, name=f'loss/{track_name}', step=i_epoch)
 
 
@@ -100,7 +106,7 @@ def train(train_dataset: Dataset, eval_dataset: Dataset):
     train_dl = DataLoader(train_dataset, batch_size=batch_size, num_workers=8, collate_fn=collator, pin_memory=True)
     eval_dl = DataLoader(eval_dataset, batch_size=batch_size, num_workers=8, collate_fn=collator, pin_memory=True)
 
-    for i_epoch in tqdm(range(n_epochs)):
+    for i_epoch in range(n_epochs):
         run_iter(
             is_training=True,
             model=model,
