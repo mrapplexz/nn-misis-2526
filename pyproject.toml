@@ -18,6 +18,7 @@ hyperopt = "^0.2.7"
 matplotlib = "^3.10.1"
 seaborn = "^0.13.2"
 tokenizers = "^0.21.1"
+pyarrow = "^19.0.1"
 
 
 [build-system]
