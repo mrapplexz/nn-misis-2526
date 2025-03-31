@@ -19,6 +19,7 @@ matplotlib = "^3.10.1"
 seaborn = "^0.13.2"
 tokenizers = "^0.21.1"
 pyarrow = "^19.0.1"
+transformers = "^4.50.3"
 
 
 [build-system]

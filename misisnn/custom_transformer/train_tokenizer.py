@@ -28,7 +28,7 @@ def train():
     )
     tokenizer.post_processor = tokenizers.processors.TemplateProcessing(
         single="[SOS] $0 [EOS]",
-        special_tokens=[('[SOS]', 0), ('[EOS]', 1)]
+        special_tokens=[('[SOS]', 1), ('[EOS]', 2)]
     )
 
     trainer = tokenizers.trainers.WordPieceTrainer(

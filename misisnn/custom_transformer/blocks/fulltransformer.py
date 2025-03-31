@@ -74,21 +74,24 @@ class DecoderBlock(nn.Module):
         self._feed_forward = FeedForwardBlock(config)
 
     def forward(
-            self, hidden_states: torch.Tensor, hidden_states_encoder: torch.Tensor,
+            self,
+            hidden_states: torch.Tensor,
+            hidden_states_encoder: torch.Tensor | None,
             attention_mask_for_self: torch.Tensor,
-            attention_mask_for_enc_decoder: torch.Tensor
+            attention_mask_for_enc_decoder: torch.Tensor | None
     ) -> torch.Tensor:
         hidden_states = self._self_attention(hidden_states, attention_mask_for_self)
-        hidden_states = self._enc_dec_attention(
-            hidden_states_decoder=hidden_states,
-            hidden_states_encoder=hidden_states_encoder,
-            attention_mask=attention_mask_for_enc_decoder
-        )
+        if hidden_states_encoder is not None and attention_mask_for_enc_decoder is not None:
+            hidden_states = self._enc_dec_attention(
+                hidden_states_decoder=hidden_states,
+                hidden_states_encoder=hidden_states_encoder,
+                attention_mask=attention_mask_for_enc_decoder
+            )
         hidden_states = self._feed_forward(hidden_states)
         return hidden_states
 
 
-class Transformer(nn.Module):
+class FullTransformer(nn.Module):
     def __init__(self, config: TransformerConfig):
         super().__init__()
 
@@ -96,6 +99,7 @@ class Transformer(nn.Module):
         self._encoder_layers = nn.ModuleList([EncoderBlock(config) for _ in range(config.num_encoder_layers)])
         self._decoder_layers = nn.ModuleList([DecoderBlock(config) for _ in range(config.num_decoder_layers)])
         self._lm_head = nn.Linear(config.hidden_size, config.vocab_size)
+        # self._lm_head.weight = self._embeddings._token_embedding.weight  # tie weights (optionally)
 
     def forward(
             self,
@@ -116,6 +120,51 @@ class Transformer(nn.Module):
                 hidden_states_encoder=encoder_state,
                 attention_mask_for_self=attention_mask_decoder_self,
                 attention_mask_for_enc_decoder=attention_mask_decoder_enc_dec
+            )
+
+        return self._lm_head(decoder_state)
+
+
+class EncoderOnlyTransformer(nn.Module):  # bert-like
+    def __init__(self, config: TransformerConfig):
+        super().__init__()
+
+        self._embeddings = TransformerEmbedding(config)
+        self._encoder_layers = nn.ModuleList([EncoderBlock(config) for _ in range(config.num_encoder_layers)])
+
+    def forward(
+            self,
+            input_ids_encoder: torch.Tensor,
+            attention_mask_encoder: torch.Tensor
+    ):
+        encoder_state = self._embeddings(input_ids_encoder)
+        for encoder_layer in self._encoder_layers:
+            encoder_state = encoder_layer(encoder_state, attention_mask_encoder)
+        return encoder_state
+
+
+
+class DecoderOnlyTransformer(nn.Module):  # gpt-like
+    def __init__(self, config: TransformerConfig):
+        super().__init__()
+
+        self._embeddings = TransformerEmbedding(config)
+        self._decoder_layers = nn.ModuleList([DecoderBlock(config) for _ in range(config.num_decoder_layers)])
+        self._lm_head = nn.Linear(config.hidden_size, config.vocab_size)
+        # self._lm_head.weight = self._embeddings._token_embedding.weight  # tie weights (optionally)
+
+    def forward(
+            self,
+            input_ids_decoder: torch.Tensor,
+            attention_mask_decoder_self: torch.Tensor
+    ):
+        decoder_state = self._embeddings(input_ids_decoder)
+        for decoder_layer in self._decoder_layers:
+            decoder_state = decoder_layer(
+                hidden_states=decoder_state,
+                hidden_states_encoder=None,
+                attention_mask_for_self=attention_mask_decoder_self,
+                attention_mask_for_enc_decoder=None
             )
 
         return self._lm_head(decoder_state)

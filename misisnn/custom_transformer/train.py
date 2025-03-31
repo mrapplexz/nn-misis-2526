@@ -11,8 +11,9 @@ from torch.optim import AdamW, Optimizer
 from torch.utils.data import Dataset, DataLoader
 from torchmetrics import MeanMetric, F1Score, Accuracy
 from tqdm import tqdm
+from transformers import get_linear_schedule_with_warmup
 
-from misisnn.custom_transformer.blocks.transformer import Transformer
+from misisnn.custom_transformer.blocks.fulltransformer import FullTransformer
 from misisnn.custom_transformer.config import TransformerConfig
 from misisnn.custom_transformer.data import TranslationCollator, TranslationDataset
 from misisnn.custom_transformer.mask_helper import construct_mask_for_encoder, construct_mask_for_decoder
@@ -31,7 +32,8 @@ def run_iter(
         dataloader: DataLoader,
         dev: torch.device,
         run: Run,
-        i_epoch: int
+        i_epoch: int,
+        scheduler
 ):
     track_name = 'train' if is_training else 'eval'
     with torch.set_grad_enabled(is_training):
@@ -65,6 +67,7 @@ def run_iter(
             if is_training:
                 loss_value.backward()
                 optimizer.step()
+                scheduler.step()
                 optimizer.zero_grad()
 
             loss.update(loss_value)
@@ -93,8 +96,8 @@ def train(train_dataset: Dataset, eval_dataset: Dataset):
     torch.random.manual_seed(seed)
 
     collator = TranslationCollator()
-    model = Transformer(cfg).to(dev)
-    optimizer = AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    model = FullTransformer(cfg).to(dev)
+    optimizer = AdamW(model.parameters(), lr=lr, weight_decay=weight_decay, betas=(0.9, 0.98), eps=1e-09)
     run = Run(experiment='123')
     run["hparams"] = {
         "learning_rate": lr,
@@ -105,6 +108,7 @@ def train(train_dataset: Dataset, eval_dataset: Dataset):
 
     train_dl = DataLoader(train_dataset, batch_size=batch_size, num_workers=8, collate_fn=collator, pin_memory=True)
     eval_dl = DataLoader(eval_dataset, batch_size=batch_size, num_workers=8, collate_fn=collator, pin_memory=True)
+    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=4000, num_training_steps=n_epochs * len(train_dl))
 
     for i_epoch in range(n_epochs):
         run_iter(
@@ -114,7 +118,8 @@ def train(train_dataset: Dataset, eval_dataset: Dataset):
             dataloader=train_dl,
             dev=dev,
             run=run,
-            i_epoch=i_epoch
+            i_epoch=i_epoch,
+            scheduler=scheduler
         )
 
         run_iter(
@@ -124,7 +129,8 @@ def train(train_dataset: Dataset, eval_dataset: Dataset):
             dataloader=eval_dl,
             dev=dev,
             run=run,
-            i_epoch=i_epoch
+            i_epoch=i_epoch,
+            scheduler=scheduler
         )
 
 
