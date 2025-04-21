@@ -20,6 +20,11 @@ seaborn = "^0.13.2"
 tokenizers = "^0.21.1"
 pyarrow = "^19.0.1"
 transformers = "^4.50.3"
+accelerate = "^1.6.0"
+torchdata = "^0.11.0"
+datasets = "^3.5.0"
+pytorch-metric-learning = "^2.8.1"
+faiss-cpu = "^1.10.0"
 
 
 [build-system]

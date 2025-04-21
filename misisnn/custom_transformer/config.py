@@ -1,8 +1,7 @@
-from dataclasses import dataclass
+from pydantic import BaseModel
 
 
-@dataclass
-class TransformerConfig:
+class TransformerConfig(BaseModel):
     vocab_size: int
     hidden_size: int = 128
     feedforward_hidden_size: int = 128 * 4
