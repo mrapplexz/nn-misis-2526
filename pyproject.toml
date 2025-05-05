@@ -26,6 +26,7 @@ datasets = "^3.5.0"
 pytorch-metric-learning = "^2.8.1"
 faiss-cpu = "^1.10.0"
 matplotlib-inline = "^0.1.7"
+torchviz = "^0.0.3"
 
 
 [build-system]
