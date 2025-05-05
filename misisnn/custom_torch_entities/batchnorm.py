@@ -10,9 +10,9 @@ class MyBatchNorm(nn.Module):
         self.momentum = momentum
         self.eps = eps
 
-        self.mean = nn.Buffer(torch.empty((num_features,), dtype=torch.float32))
-        self.var = nn.Buffer(torch.empty((num_features,), dtype=torch.float32))
-        self.is_initialized = nn.Buffer(torch.scalar_tensor(False, dtype=torch.bool))
+        self.mean = nn.Buffer(torch.empty((num_features,), dtype=torch.float32), persistent=True)
+        self.var = nn.Buffer(torch.empty((num_features,), dtype=torch.float32), persistent=True)
+        self.is_initialized = nn.Buffer(torch.scalar_tensor(False, dtype=torch.bool), persistent=True)
 
         self.gamma = nn.Parameter(torch.empty((num_features,), dtype=torch.float32), requires_grad=True)
         nn.init.ones_(self.gamma)
