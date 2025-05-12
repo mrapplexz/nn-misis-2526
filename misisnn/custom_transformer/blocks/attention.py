@@ -55,6 +55,9 @@ class MultiHeadAttention(nn.Module):
 
         self._num_heads = config.attention_heads
 
+    def get_dtype(self) -> torch.dtype:
+        return self._query_proj.weight.dtype
+
 
     def forward(self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
         # q or k or v: [batch size; some seq len; hidden size]

@@ -23,6 +23,9 @@ class SelfAttentionBlock(nn.Module):
         self._attention = MultiHeadAttention(config)
         self._sub = SubLayer(config)
 
+    def get_dtype(self) -> torch.dtype:
+        return self._attention.get_dtype()
+
     def forward(self, hidden_states: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
         return self._sub(hidden_states, self._attention(hidden_states, hidden_states, hidden_states, attention_mask))
 
@@ -59,6 +62,9 @@ class EncoderBlock(nn.Module):
         super().__init__()
         self._self_attention = SelfAttentionBlock(config)
         self._feed_forward = FeedForwardBlock(config)
+
+    def get_dtype(self) -> torch.dtype:
+        return self._self_attention.get_dtype()
 
     def forward(self, hidden_states: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
         hidden_states = self._self_attention(hidden_states, attention_mask)
@@ -101,13 +107,17 @@ class FullTransformer(nn.Module):
         self._lm_head = nn.Linear(config.hidden_size, config.vocab_size)
         # self._lm_head.weight = self._embeddings._token_embedding.weight  # tie weights (optionally)
 
+    def get_dtype(self) -> torch.dtype:
+        return self._encoder_layers[0].get_dtype()
+
     def forward(
             self,
             input_ids_encoder: torch.Tensor,
             input_ids_decoder: torch.Tensor,
             attention_mask_encoder: torch.Tensor,
             attention_mask_decoder_self: torch.Tensor,
-            attention_mask_decoder_enc_dec: torch.Tensor
+            attention_mask_decoder_enc_dec: torch.Tensor,
+            return_logits: bool = True
     ):
         encoder_state = self._embeddings(input_ids_encoder)
         for encoder_layer in self._encoder_layers:
@@ -121,8 +131,10 @@ class FullTransformer(nn.Module):
                 attention_mask_for_self=attention_mask_decoder_self,
                 attention_mask_for_enc_decoder=attention_mask_decoder_enc_dec
             )
-
-        return self._lm_head(decoder_state)
+        if return_logits:
+            return self._lm_head(decoder_state)
+        else:
+            return decoder_state
 
 
 class EncoderOnlyTransformer(nn.Module):  # bert-like

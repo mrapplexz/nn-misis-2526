@@ -13,18 +13,28 @@
       "schedule": "linear_warmup",
       "warmup_steps_proportion": 0.1
     },
-    "experiment_name": "test-transformer-train",
-    "minibatch_size": 64,
+    "experiment_name": "transformer-tf32-ligercrossentropy",
+    "minibatch_size": 8,
     "shuffle_train_dataset": true,
     "num_workers": 16,
     "log_steps": 10,
     "eval_steps": 50,
     "save_steps": 50,
-    "log_with": "aim"
+    "log_with": "aim",
+    "precision": {
+      "enable_tf32": true,
+      "low_precision": "no",
+      "enable_amp": false
+    }
   },
   "dataset_path": "/home/me/downloads/train-00000-of-00001.parquet",
   "tokenizer_path": "/home/me/projects/misis-2526/saved_tokenizers/transformer_tokenizer.json",
   "model": {
-    "vocab_size": 32000
+    "vocab_size": 32000,
+    "hidden_size": 2048,
+    "feedforward_hidden_size": 8192,
+    "attention_heads": 16,
+    "num_encoder_layers": 4,
+    "num_decoder_layers": 4
   }
 }

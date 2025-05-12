@@ -54,10 +54,13 @@ class TransformerTrainable(Trainable):
         result = model(
             input_ids_encoder=model_inputs['ru']['input_ids'],
             input_ids_decoder=decoder_inputs,
-            attention_mask_encoder=construct_mask_for_encoder(model_inputs['ru']['attention_mask'], query_size=None),
-            attention_mask_decoder_self=construct_mask_for_decoder(decoder_att_mask),
+            attention_mask_encoder=construct_mask_for_encoder(model_inputs['ru']['attention_mask'], query_size=None,
+                                                              target_dtype=model.get_dtype()),
+            attention_mask_decoder_self=construct_mask_for_decoder(decoder_att_mask, target_dtype=model.get_dtype()),
             attention_mask_decoder_enc_dec=construct_mask_for_encoder(model_inputs['ru']['attention_mask'],
-                                                                      query_size=decoder_inputs.shape[1]),
+                                                                      query_size=decoder_inputs.shape[1],
+                                                                      target_dtype=model.get_dtype()),
+            return_logits=True
         ).reshape(-1, 32000)
 
         decoder_tgt = model_inputs['en']['input_ids'][:, 1:].reshape(-1)

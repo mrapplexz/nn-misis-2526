@@ -27,6 +27,8 @@ pytorch-metric-learning = "^2.8.1"
 faiss-cpu = "^1.10.0"
 matplotlib-inline = "^0.1.7"
 torchviz = "^0.0.3"
+bitsandbytes = "^0.45.5"
+liger-kernel = "^0.5.9"
 
 
 [build-system]

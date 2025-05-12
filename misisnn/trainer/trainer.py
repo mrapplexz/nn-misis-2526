@@ -1,7 +1,9 @@
 import abc
+import time
 from pathlib import Path
 from typing import Any
 
+import bitsandbytes.optim.adam
 import torch
 import torchmetrics
 import transformers
@@ -15,7 +17,36 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 from misisnn.trainer.config import TrainerConfig, SGDConfig, AdamConfig, AdamWConfig, ConstantSchedulerConfig, \
-    LinearWarmupSchedulerConfig
+    LinearWarmupSchedulerConfig, LowPrecision, PrecisionConfig, AdamW8BitConfig
+
+
+def _convert_precision(x: nn.Module | torch.Tensor, config: PrecisionConfig) -> nn.Module | torch.Tensor:
+    if config.enable_amp:
+        return x
+
+    if isinstance(x, torch.Tensor) and x.dtype not in {torch.float32}:
+        return x
+
+    match config.low_precision:
+        case LowPrecision.no:
+            return x
+        case LowPrecision.fp16:
+            return x.half()
+        case LowPrecision.bf16:
+            return x.to(torch.bfloat16)
+        case _:
+            raise NotImplementedError()
+
+
+def _convert_minibatch(minibatch, precision_config: PrecisionConfig):
+    if isinstance(minibatch, dict):
+        return {k: _convert_minibatch(v, precision_config) for k, v in minibatch.items()}
+    elif isinstance(minibatch, list):
+        return [_convert_minibatch(x, precision_config) for x in minibatch]
+    elif isinstance(minibatch, torch.Tensor):
+        return _convert_precision(minibatch, precision_config)
+    else:
+        return minibatch
 
 
 class Trainable(abc.ABC):
@@ -48,6 +79,12 @@ class Trainer:
                 return Adam(params, lr=self._config.optimizer.learning_rate)
             case AdamWConfig():
                 return AdamW(
+                    params,
+                    lr=self._config.optimizer.learning_rate,
+                    weight_decay=self._config.optimizer.weight_decay
+                )
+            case AdamW8BitConfig():
+                return bitsandbytes.optim.adam.Adam8bit(
                     params,
                     lr=self._config.optimizer.learning_rate,
                     weight_decay=self._config.optimizer.weight_decay
@@ -114,6 +151,7 @@ class Trainer:
         metrics = None
 
         for i, minibatch in enumerate(dataloader):
+            minibatch = _convert_minibatch(minibatch, self._config.precision)
             current_global_step = epoch_i * len(dataloader) + i
             current_global_optimizer_step = current_global_step // self._config.gradient_accumulation_steps
             if accelerator.sync_gradients and current_global_optimizer_step % self._config.log_steps == 0:
@@ -128,10 +166,24 @@ class Trainer:
                 metrics = self._create_metrics(accelerator)
 
             with accelerator.accumulate():
-                loss_value, outputs = self._trainable.forward_pass(model, minibatch)
+                t0_forward = time.time()
+                with accelerator.autocast():
+                    loss_value, outputs = self._trainable.forward_pass(model, minibatch)
+                t1_forward = time.time()
+                metrics['run_time_forward'].update(t1_forward - t0_forward)
+
                 self._trainable.update_metrics(outputs, metrics)
+
+                t0_backward = time.time()
                 accelerator.backward(loss_value)
+                t1_backward = time.time()
+                metrics['run_time_backward'].update(t1_backward - t0_backward)
+
+                t0_opt_step = time.time()
                 optimizer.step()
+                t1_opt_step = time.time()
+                metrics['run_time_optimizer'].update(t1_opt_step - t0_opt_step)
+
                 scheduler.step()
                 optimizer.zero_grad()
 
@@ -146,7 +198,19 @@ class Trainer:
     def _create_metrics(self, accelerator: Accelerator):
         metrics = self._trainable.create_metrics()
         metrics = {k: v.to(accelerator.device) for k, v in metrics.items()}
-        return metrics
+
+        default_metrics = self._create_default_metrics(accelerator)
+
+        return {**metrics, **default_metrics}
+
+    def _create_default_metrics(self, accelerator: Accelerator):
+        metric_run_time_forward = torchmetrics.MeanMetric().to(accelerator.device)
+        metric_run_time_backward = torchmetrics.MeanMetric().to(accelerator.device)
+        return {
+            'run_time_forward': metric_run_time_forward,
+            'run_time_backward': metric_run_time_backward,
+            'run_time_optimizer': torchmetrics.MeanMetric().to(accelerator.device)
+        }
 
     def _eval_loop_iter(
             self,
@@ -173,17 +237,28 @@ class Trainer:
 
             model.train()
 
+    def _enable_tf32(self):
+        torch.backends.cuda.matmul.allow_tf32 = self._config.precision.enable_tf32
+        torch.backends.cudnn.allow_tf32 = self._config.precision.enable_tf32
+
+    def _perform_low_casting(self, model: nn.Module) -> nn.Module:
+        return _convert_precision(model, self._config.precision)
+
     def train(self, train_dataset: Dataset, val_dataset: Dataset):
         set_seed(self._config.seed)
+        self._enable_tf32()
+
         train_dataloader = self._create_dataloader(train_dataset, for_training=True)
         val_dataloader = self._create_dataloader(val_dataset, for_training=False)
+        amp_precision = self._config.precision.low_precision if self._config.precision.enable_amp else None
         accel = Accelerator(
             gradient_accumulation_steps=self._config.gradient_accumulation_steps,
             dataloader_config=DataLoaderConfiguration(
                 use_stateful_dataloader=self._config.use_stateful_dataloader
             ),
             project_dir=self._config.project_dir,
-            log_with=self._config.log_with
+            log_with=self._config.log_with,
+            mixed_precision=amp_precision
         )
         accel.init_trackers(
             self._config.experiment_name,
@@ -193,6 +268,7 @@ class Trainer:
         )
         train_dataloader, val_dataloader = accel.prepare(train_dataloader, val_dataloader)
         num_total_steps = len(train_dataloader) * self._config.num_epochs
+        self._model = self._perform_low_casting(self._model)
         optimizer = self._create_optimizer(self._model.parameters())
         scheduler = self._create_scheduler(optimizer, num_total_steps=num_total_steps)
         model, optimizer, scheduler = accel.prepare(self._model, optimizer, scheduler)

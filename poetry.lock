@@ -401,6 +401,27 @@ files = [
 ]
 
 [[package]]
+name = "bitsandbytes"
+version = "0.45.5"
+description = "k-bit optimizers and matrix multiplication routines."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "bitsandbytes-0.45.5-py3-none-manylinux_2_24_x86_64.whl", hash = "sha256:a5453f30cc6aab6ccaac364e6bf51a7808d3da5f71763dffeb6d9694c59136e4"},
+    {file = "bitsandbytes-0.45.5-py3-none-win_amd64.whl", hash = "sha256:ed1c61b91d989d6a33fd05737d6edbf5086d8ebc89235ee632c7a19144085da2"},
+]
+
+[package.dependencies]
+numpy = ">=1.17"
+torch = ">=2.0,<3"
+
+[package.extras]
+benchmark = ["matplotlib", "pandas"]
+dev = ["bitsandbytes[test]", "build (>=1.0.0,<2)", "pre-commit (>=3.5.0,<4)", "ruff (==0.9.6)", "wheel (>=0.42,<1)"]
+docs = ["hf-doc-builder (==0.5.0)"]
+test = ["einops (>=0.8.0,<0.9.0)", "lion-pytorch (==0.2.3)", "pytest (>=8.3,<9.0)", "scipy (>=1.10.1,<2)", "scipy (>=1.11.4,<2)", "transformers (>=4.30.1,<5)"]
+
+[[package]]
 name = "boto3"
 version = "1.37.4"
 description = "The AWS SDK for Python"
@@ -1508,6 +1529,24 @@ files = [
     {file = "kiwisolver-1.4.8-pp310-pypy310_pp73-win_amd64.whl", hash = "sha256:65ea09a5a3faadd59c2ce96dc7bf0f364986a315949dc6374f04396b0d60e09b"},
     {file = "kiwisolver-1.4.8.tar.gz", hash = "sha256:23d5f023bdc8c7e54eb65f03ca5d5bb25b601eac4d7f1a042888a1f45237987e"},
 ]
+
+[[package]]
+name = "liger-kernel"
+version = "0.5.9"
+description = "Efficient Triton kernels for LLM Training"
+optional = false
+python-versions = "*"
+files = [
+    {file = "liger_kernel-0.5.9-py3-none-any.whl", hash = "sha256:329eecdaf0b5ac8b84fc8fc17b75bf1e0ff9b62b266cfc9e5200bdb63c72c4e4"},
+    {file = "liger_kernel-0.5.9.tar.gz", hash = "sha256:ada9e8bc34af310b5fa66818b2da494ecbcfb2973a3755c375877d44ccd49a99"},
+]
+
+[package.dependencies]
+torch = ">=2.1.2"
+triton = ">=2.3.1"
+
+[package.extras]
+dev = ["black (>=24.4.2)", "datasets (>=2.19.2)", "flake8 (>=4.0.1.1)", "isort (>=5.13.2)", "matplotlib (>=3.7.2)", "mkdocs", "mkdocs-material", "pytest (>=7.1.2)", "pytest-rerunfailures", "pytest-xdist", "seaborn", "transformers (>=4.44.2)"]
 
 [[package]]
 name = "lightning-utilities"
@@ -3956,4 +3995,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<3.12"
-content-hash = "124a074fd1df6563378986b2d9a7d8fbbbb249dde7ab6847880bd09fd3064080"
+content-hash = "358345458f61ccc46cbe0286acd387ba7438f2c4877fcd499a0eef98c39f198a"
