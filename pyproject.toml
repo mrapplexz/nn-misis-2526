@@ -29,6 +29,10 @@ matplotlib-inline = "^0.1.7"
 torchviz = "^0.0.3"
 bitsandbytes = "^0.45.5"
 liger-kernel = "^0.5.9"
+onnxruntime-gpu = "^1.22.0"
+onnx = "^1.18.0"
+onnxscript = "^0.2.6"
+onnxsim = "^0.4.36"
 
 
 [build-system]
